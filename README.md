@@ -30,7 +30,7 @@
 *.json обраатывался слишком долго и убивал ядро, поэтому я отказался от него*
 
 # Операции с различными форматами
-
+`python scripts/benchmark_read.py`
 Сделал 2 режима:
 - direct - Запросы сразу к файлам - `read_parquet(...), read_csv_auto(...)` и.т.п
 - materialized - Запросы через CREATE TEMP TABLE<br>
@@ -44,3 +44,13 @@
 
 # Результаты
 
+Посмотреть все дашборды: выполнить команду `python -m http.server 8000` и перейти на `http://localhost:8000/results/benchmark_dashboard.html`
+
+## Write
+
+![Дашборд записи](image.png)
+
+## Read Direct
+
+![alt text](image-1.png)
+![alt text](image-2.png)

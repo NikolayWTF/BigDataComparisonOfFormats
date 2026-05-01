@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Benchmark Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body { font-family: Arial; background:#0f172a; color:#e2e8f0; margin:0; padding:20px; }
+    h1 { text-align:center; }
+    .tabs { display:flex; justify-content:center; gap:10px; margin-bottom:20px; }
+    .tab { padding:10px 20px; background:#1e293b; border-radius:10px; cursor:pointer; }
+    .tab.active { background:#38bdf8; color:#000; }
+    .controls { text-align:center; margin-bottom:20px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .card { background:#1e293b; padding:20px; border-radius:16px; }
+  </style>
+</head>
+<body>
+
+<h1>📊 Benchmark Dashboard</h1>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('write')">Write</div>
+  <div class="tab" onclick="switchTab('read')">Read</div>
+</div>
+
+<div class="controls">
+  Mode:
+  <select id="modeSelect" onchange="renderAll()">
+    <option value="all">All</option>
+    <option value="direct">Direct</option>
+    <option value="materialized">Materialized</option>
+  </select>
+</div>
+
+<div id="content"></div>
+
+<script>
+let writeData = [];
+let readData = [];
+
+const colors = {
+  csv: '#38bdf8',
+  jsonl: '#facc15',
+  parquet: '#34d399',
+  orc: '#f87171',
+  sqlite: '#c084fc'
+};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  currentTab = tab;
+  renderAll();
+}
+
+let currentTab = 'write';
+
+function filterData(data) {
+  const mode = document.getElementById('modeSelect').value;
+  if (mode === 'all') return data;
+  return data.filter(r => r.mode === mode);
+}
+
+function groupAvg(data, key) {
+  const map = {};
+  data.forEach(r => {
+    const f = r.format;
+    if (!map[f]) map[f] = [];
+    map[f].push(parseFloat(r[key]));
+  });
+  return Object.fromEntries(Object.entries(map).map(([k,v])=>[k, v.reduce((a,b)=>a+b,0)/v.length]));
+}
+
+function createChart(ctx, labels, data, formats) {
+  new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: labels,
+      datasets: formats.map(f => ({
+        label: f,
+        data: data.map(d => d[f] || 0),
+        backgroundColor: colors[f] || '#888'
+      }))
+    },
+    options:{ responsive:true }
+  });
+}
+
+function renderWrite() {
+  const data = filterData(writeData);
+  const wall = groupAvg(data, 'wall_time_sec');
+  const cpu = groupAvg(data, 'cpu_time_sec');
+  const formats = Object.keys(wall);
+
+  document.getElementById('content').innerHTML = `
+    <div class="grid">
+      <div class="card"><canvas id="w1"></canvas></div>
+      <div class="card"><canvas id="w2"></canvas></div>
+    </div>`;
+
+  createChart(document.getElementById('w1'), ['Wall Time'], [wall], formats);
+  createChart(document.getElementById('w2'), ['CPU Time'], [cpu], formats);
+}
+
+function renderRead() {
+  const data = filterData(readData);
+  const ops = [...new Set(data.map(r=>r.query_type))];
+  const formats = [...new Set(data.map(r=>r.format))];
+
+  let html = '<div class="grid">';
+  ops.forEach(op => {
+    html += `<div class="card"><h3>${op}</h3><canvas id="${op}"></canvas></div>`;
+  });
+  html += '</div>';
+
+  document.getElementById('content').innerHTML = html;
+
+  ops.forEach(op => {
+    const subset = data.filter(r=>r.query_type===op);
+    const wall = groupAvg(subset, 'wall_time_sec');
+    createChart(document.getElementById(op), ['Wall Time'], [wall], formats);
+  });
+}
+
+function renderAll() {
+  if (currentTab === 'write') renderWrite();
+  else renderRead();
+}
+
+Papa.parse('write_benchmark.csv', {
+  download:true,
+  header:true,
+  complete: res => { writeData = res.data.filter(r=>r.format); renderAll(); }
+});
+
+Papa.parse('read_benchmark.csv', {
+  download:true,
+  header:true,
+  complete: res => { readData = res.data.filter(r=>r.format); renderAll(); }
+});
+</script>
+
+</body>
+</html>
