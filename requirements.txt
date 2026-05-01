@@ -1,0 +1,8 @@
+datasets
+orjson
+tqdm
+polars
+pyarrow
+pandas
+duckdb
+matplotlib
