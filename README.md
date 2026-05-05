@@ -36,11 +36,42 @@
 - materialized - Запросы через CREATE TEMP TABLE<br>
 
 Операции:
-1. read
-2. filter
-3. groupby
-4. window
-5. materialize
+1. read - 
+```
+SQL SELECT count(*) FROM source
+```
+2. filter - 
+```
+SELECT count(*)
+FROM source
+WHERE score > 10 AND subreddit IS NOT NULL
+```
+3. groupby - 
+```
+SELECT subreddit, count(*) AS cnt, avg(score) AS avg_score
+FROM source
+WHERE subreddit IS NOT NULL
+GROUP BY subreddit
+ORDER BY cnt DESC
+LIMIT 100
+```
+4. window - 
+```
+SELECT subreddit, author, created_utc, score
+FROM (
+    SELECT *,
+           row_number() OVER (
+               PARTITION BY subreddit
+               ORDER BY created_utc DESC
+           ) AS rn
+    FROM source
+    WHERE subreddit IS NOT NULL AND created_utc IS NOT NULL
+) t
+WHERE rn <= 3
+```
+5. materialize - поддерживает 2 режима: <br>
+`direct` — запросы выполняются напрямую над источником данных<br>
+`materialized` — данные предварительно загружаются в временную таблицу
 
 # Результаты
 
