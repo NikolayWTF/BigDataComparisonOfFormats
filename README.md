@@ -36,17 +36,17 @@
 - materialized - Запросы через CREATE TEMP TABLE<br>
 
 Операции:
-1. read - 
+1. read - Запрос на полное чтение таблицы с подсчётом количества строк.
 ```
 SQL SELECT count(*) FROM source
 ```
-2. filter - 
+2. filter - Запрос с условием отбора строк (фильтрацией) по условию score > 10 и subreddit не NULL.
 ```
 SELECT count(*)
 FROM source
 WHERE score > 10 AND subreddit IS NOT NULL
 ```
-3. groupby - 
+3. groupby - Агрегационный запрос с группировкой по subreddit
 ```
 SELECT subreddit, count(*) AS cnt, avg(score) AS avg_score
 FROM source
@@ -55,7 +55,7 @@ GROUP BY subreddit
 ORDER BY cnt DESC
 LIMIT 100
 ```
-4. window - 
+4. window - Запрос с оконной функцией, который находит последние 3 записи в каждом subreddit по времени создания.
 ```
 SELECT subreddit, author, created_utc, score
 FROM (
