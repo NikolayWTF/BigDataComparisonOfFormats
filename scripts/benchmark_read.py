@@ -1,4 +1,5 @@
 import argparse
+import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -6,9 +7,13 @@ from pathlib import Path
 import duckdb
 import pyarrow.orc as pa_orc
 
+RAW_PATH = Path("data/raw/reddit_10gb.jsonl")
 DATA_DIR = Path("data/converted")
 RESULTS_CSV = Path("results/read_benchmark.csv")
 RESULTS_CSV.parent.mkdir(parents=True, exist_ok=True)
+
+CPP_BINDINGS_DIR = Path("cpp_bindings")
+sys.path.append(CPP_BINDINGS_DIR.as_posix())
 
 FILES = {
     "jsonl": DATA_DIR / "comments.jsonl",
@@ -152,6 +157,30 @@ def bench_materialized(fmt: str, path: Path):
     return rows
 
 
+def bench_cpp_binding(path: Path):
+    """Benchmark reading/counting raw JSONL rows through a C++ pybind11 extension."""
+    if not path.exists():
+        print(f"[WARN] skip cpp_binding, raw file not found: {path}")
+        return []
+
+    try:
+        import fast_count
+    except ImportError as e:
+        print(f"[WARN] skip cpp_binding, extension is not built: {e}")
+        print("[WARN] build it first:")
+        print("       cd cpp_bindings")
+        print("       python setup.py build_ext --inplace")
+        print("       cd ..")
+        return []
+
+    print("Benchmarking cpp_binding (direct)...")
+    with timer() as elapsed:
+        fast_count.count_lines(path.as_posix())
+    wall, cpu = elapsed()
+
+    return [("direct", "cpp_binding", "read", wall, cpu)]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Read benchmark for data formats.")
     parser.add_argument(
@@ -188,6 +217,9 @@ def main():
                 all_rows.extend(bench_materialized(fmt, path))
         except Exception as e:
             print(f"[ERROR] {fmt} failed: {e}")
+
+    if args.mode in ("direct", "both"):
+        all_rows.extend(bench_cpp_binding(RAW_PATH))
 
     with results_csv.open("w", encoding="utf-8") as f:
         f.write("mode,format,query_type,wall_time_sec,cpu_time_sec\n")
