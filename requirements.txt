@@ -6,3 +6,5 @@ pyarrow
 pandas
 duckdb
 matplotlib
+pybind11
+setuptools
