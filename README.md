@@ -85,3 +85,7 @@ WHERE rn <= 3
 
 ![alt text](image-1.png)
 ![alt text](image-2.png)
+
+## UPD
+Добавлен blinding C++
+![alt text](image-3.png)
